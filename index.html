@@ -1,50 +1,190 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>KasiVest - Township Property Analyzer</title>
-  <style>
-    body { font-family: Arial; padding: 40px; background: #111; color: white; }
-    input { display:block; margin:10px 0; padding:10px; width:300px; }
-    button { padding:10px 20px; background: green; color:white; border:none; cursor:pointer; }
-    pre { background:#222; padding:15px; margin-top:20px; white-space: pre-wrap; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KasiProp - Township Property Marketplace</title>
+<style>
+  :root {
+    --bg-color: #111;
+    --text-color: #fff;
+    --card-bg: #222;
+    --accent: #28a745;
+  }
+  [data-theme="light"] {
+    --bg-color: #fff;
+    --text-color: #111;
+    --card-bg: #f9f9f9;
+    --accent: #007bff;
+  }
+  body {
+    margin: 0; font-family: Arial,sans-serif;
+    background: var(--bg-color); color: var(--text-color);
+  }
+  header { padding: 15px; display:flex; justify-content:space-between; align-items:center; background:var(--card-bg);}
+  h1 { margin:0; font-size:1.5rem;}
+  button { cursor:pointer; }
+  .tabs { display:flex; gap:10px; margin:10px;}
+  .tabs button { padding:8px 12px; border:none; background:var(--card-bg); color:var(--text-color);}
+  .tabs button.active { border-bottom:2px solid var(--accent);}
+  #filterPanel { display:none; position:fixed; top:0; left:0; width:80%; max-width:350px; height:100%; background:var(--card-bg); padding:20px; overflow-y:auto; box-shadow:2px 0 8px rgba(0,0,0,0.5);}
+  #filterPanel.show { display:block; }
+  .property-card { background:var(--card-bg); padding:15px; margin:10px 0; border-radius:8px;}
+  .property-card h4 { margin:0 0 5px; }
+  .badge { background:var(--accent); color:#fff; padding:2px 6px; border-radius:4px; font-size:0.75rem; margin-left:5px; }
+  .save-btn { float:right; cursor:pointer; }
+  #recentlyViewed { margin-top:20px; }
+  label { display:block; margin:8px 0 2px;}
+  input, select { width:100%; padding:8px; margin-bottom:10px; }
+  .theme-toggle { background:var(--accent); color:#fff; padding:5px 10px; border:none; border-radius:4px; }
+  @media(max-width:600px){.tabs{flex-wrap:wrap;}}
+</style>
 </head>
-<body>
+<body data-theme="dark">
 
-<h1>KasiVest 🇿🇦</h1>
-<h3>Township Property Investment Analyzer (R)</h3>
+<header>
+  <h1>KasiProp 🏘️</h1>
+  <button class="theme-toggle" onclick="toggleTheme()">Switch Theme</button>
+</header>
 
-<input id="price" placeholder="Purchase Price (R)">
-<input id="rent" placeholder="Monthly Rent (R)">
-<input id="reno" placeholder="Renovation Cost (R)">
+<div class="tabs">
+  <button class="tab-btn active" data-tab="rentals">Rentals</button>
+  <button class="tab-btn" data-tab="sales">Sales</button>
+  <button class="tab-btn" data-tab="invest">Investment</button>
+  <button onclick="toggleFilter()">Filters 🔍</button>
+</div>
 
-<button onclick="analyze()">Analyze Property</button>
+<div id="filterPanel">
+  <h3>Filters</h3>
+  <label>Township:</label>
+  <input type="text" id="township" placeholder="e.g., Soweto, Mamelodi">
+  
+  <label>Property Type:</label>
+  <select id="propertyType">
+    <option value="">All</option>
+    <option value="house">House</option>
+    <option value="flat">Flat</option>
+    <option value="backroom">Backroom / Rental Unit</option>
+    <option value="retail">Retail / Spaza</option>
+  </select>
 
-<pre id="result"></pre>
+  <label>Budget (R):</label>
+  <input type="number" id="minBudget" placeholder="Min">
+  <input type="number" id="maxBudget" placeholder="Max">
+
+  <label>Features:</label>
+  <select id="features" multiple>
+    <option value="secure_parking">Secure Parking</option>
+    <option value="balcony">Balcony</option>
+    <option value="cupboards">Built-in Cupboards</option>
+    <option value="shared_yard">Shared Yard</option>
+    <option value="prepaid_electricity">Prepaid Electricity</option>
+    <option value="extra_rooms">Backyard / Extra Rooms</option>
+  </select>
+
+  <label>Intent:</label>
+  <select id="intent">
+    <option value="rent">Rent</option>
+    <option value="buy">Buy</option>
+    <option value="invest">Invest</option>
+  </select>
+
+  <button onclick="applyFilters()">Apply</button>
+  <button onclick="toggleFilter()">Close</button>
+</div>
+
+<div id="propertyList"></div>
+
+<div id="recentlyViewed">
+  <h3>Recently Viewed</h3>
+  <div id="recentList"></div>
+</div>
 
 <script>
-async function analyze() {
-  const url = "https://trzqppuelvennxetwgwm.supabase.co/functions/v1/swift-endpoint";
+const baseUrl = "https://trzqppuelvennxetwgwm.supabase.co/functions/v1/swift-endpoint";
+let currentTab = 'rentals';
+let recentlyViewed = [];
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      price: document.getElementById("price").value,
-      rent: document.getElementById("rent").value,
-      renovation: document.getElementById("reno").value
-    })
-  });
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{switchTab(btn.dataset.tab);});
+});
 
-  const data = await response.json();
-
-  document.getElementById("result").innerText =
-    "Total Investment: R" + data.totalInvestment + "\n" +
-    "Annual Income: R" + data.annualIncome + "\n" +
-    "ROI: " + data.roi + "%\n\n" +
-    "AI Analysis:\n" + JSON.stringify(data.aiAnalysis, null, 2);
+function switchTab(tab){
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`.tab-btn[data-tab="${tab}"]`).classList.add('active');
+  fetchProperties();
 }
+
+function toggleFilter(){
+  document.getElementById('filterPanel').classList.toggle('show');
+}
+
+function toggleTheme(){
+  const body = document.body;
+  body.dataset.theme = body.dataset.theme==='dark'?'light':'dark';
+}
+
+async function fetchProperties(){
+  const filters = {
+    township: document.getElementById('township').value,
+    propertyType: document.getElementById('propertyType').value,
+    minBudget: document.getElementById('minBudget').value,
+    maxBudget: document.getElementById('maxBudget').value,
+    features: Array.from(document.getElementById('features').selectedOptions).map(o=>o.value),
+    intent: document.getElementById('intent').value,
+    tab: currentTab
+  };
+
+  const res = await fetch(baseUrl,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify(filters)
+  });
+  const data = await res.json();
+  renderProperties(data.properties || []);
+  updateRecentlyViewed(data.properties || []);
+}
+
+function renderProperties(properties){
+  const container = document.getElementById('propertyList');
+  container.innerHTML='';
+  properties.forEach(p=>{
+    const card = document.createElement('div');
+    card.className='property-card';
+    card.innerHTML=`
+      <h4>${p.title} ${p.verified?'<span class="badge">Verified</span>':''}</h4>
+      <p>${p.township} - R${p.price}</p>
+      <p>${p.features?.join(', ')}</p>
+      <p>Development Potential: ${p.developmentPotential || 'N/A'}</p>
+      <p>ROI: ${p.roi || 'Calculating…'}%</p>
+      <span class="save-btn" onclick="saveProperty('${p.id}')">💾</span>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function saveProperty(id){
+  alert('Property saved! (simulate bookmark)');
+}
+
+function updateRecentlyViewed(properties){
+  properties.slice(0,3).forEach(p=>{
+    if(!recentlyViewed.some(r=>r.id===p.id)) recentlyViewed.push(p);
+  });
+  const container = document.getElementById('recentList');
+  container.innerHTML='';
+  recentlyViewed.forEach(p=>{
+    const div = document.createElement('div');
+    div.textContent=`${p.title} - R${p.price}`;
+    container.appendChild(div);
+  });
+}
+
+// initial fetch
+fetchProperties();
 </script>
 
 </body>
 </html>
+
