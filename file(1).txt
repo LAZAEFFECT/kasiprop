@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>KasiVest - Township Property Analyzer</title>
+  <style>
+    body { font-family: Arial; padding: 40px; background: #111; color: white; }
+    input { display:block; margin:10px 0; padding:10px; width:300px; }
+    button { padding:10px 20px; background: green; color:white; border:none; cursor:pointer; }
+    pre { background:#222; padding:15px; margin-top:20px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+<h1>KasiVest 🇿🇦</h1>
+<h3>Township Property Investment Analyzer (R)</h3>
+
+<input id="price" placeholder="Purchase Price (R)">
+<input id="rent" placeholder="Monthly Rent (R)">
+<input id="reno" placeholder="Renovation Cost (R)">
+
+<button onclick="analyze()">Analyze Property</button>
+
+<pre id="result"></pre>
+
+<script>
+async function analyze() {
+  const url = "https://trzqppuelvennxetwgwm.supabase.co/functions/v1/swift-endpoint";
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      price: document.getElementById("price").value,
+      rent: document.getElementById("rent").value,
+      renovation: document.getElementById("reno").value
+    })
+  });
+
+  const data = await response.json();
+
+  document.getElementById("result").innerText =
+    "Total Investment: R" + data.totalInvestment + "\n" +
+    "Annual Income: R" + data.annualIncome + "\n" +
+    "ROI: " + data.roi + "%\n\n" +
+    "AI Analysis:\n" + JSON.stringify(data.aiAnalysis, null, 2);
+}
+</script>
+
+</body>
+</html>
